@@ -5,7 +5,7 @@ A simple Go project generator that creates projects from templates.
 ## Installation
 
 ```bash
-go install github.com/2xhamzeh/gop
+go install github.com/2xhamzeh/gop@latest
 ```
 
 ## Usage
