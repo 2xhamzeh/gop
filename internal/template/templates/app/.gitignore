@@ -1,0 +1,65 @@
+# Environment variables
+.env
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Binary output directories
+bin/
+dist/
+
+# Go workspace file
+go.work
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Temporary files
+tmp/
+temp/
+
+# Local development configs
+config.local.yaml
+*.local.yml
+
+# Dependency directories (uncomment if you're not using Go modules)
+# vendor/
+
+# Debug files
+__debug_bin
+debug.test
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Build output
+build/

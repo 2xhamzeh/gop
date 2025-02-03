@@ -1,0 +1,41 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Go workspace file
+go.work
+
+# Binary output directory
+/bin/
+/dist/
+
+# Mac specific
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+.vim/
+
+# Environment files
+.env
+.env.local
+*.env
+
+# Log files
+*.log
+
+# Test coverage
+coverage.txt
+coverage.html
