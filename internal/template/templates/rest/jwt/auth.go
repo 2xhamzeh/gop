@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"example.com/app"
+	"example.com/rest"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -18,7 +18,7 @@ type authService struct {
 	duration time.Duration
 }
 
-func NewAuthService(secret string, duration time.Duration) app.AuthService {
+func NewAuthService(secret string, duration time.Duration) rest.AuthService {
 	return &authService{
 		secret:   secret,
 		duration: duration,
@@ -38,7 +38,7 @@ func (s *authService) GenerateToken(userID int) (string, error) {
 	tokenString, err := token.SignedString([]byte(s.secret))
 	if err != nil {
 		slog.Error("failed to generate token", "error", err, "userID", userID)
-		return "", app.Errorf(app.INTERNAL_ERROR, "failed to generate token")
+		return "", rest.Errorf(rest.INTERNAL_ERROR, "failed to generate token")
 	}
 
 	return tokenString, nil
@@ -47,18 +47,18 @@ func (s *authService) GenerateToken(userID int) (string, error) {
 func (s *authService) ValidateToken(tokenString string) (int, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, app.Errorf(app.UNAUTHORIZED_ERROR, "invalid token")
+			return nil, rest.Errorf(rest.UNAUTHORIZED_ERROR, "invalid token")
 		}
 		return []byte(s.secret), nil
 	})
 
 	if err != nil {
-		return 0, app.Errorf(app.UNAUTHORIZED_ERROR, "invalid token")
+		return 0, rest.Errorf(rest.UNAUTHORIZED_ERROR, "invalid token")
 	}
 
 	if claims, ok := token.Claims.(*claims); ok && token.Valid {
 		return claims.UserID, nil
 	}
 
-	return 0, app.Errorf(app.UNAUTHORIZED_ERROR, "invalid token claims")
+	return 0, rest.Errorf(rest.UNAUTHORIZED_ERROR, "invalid token claims")
 }

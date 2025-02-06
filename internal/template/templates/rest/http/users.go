@@ -1,16 +1,16 @@
 package http
 
 import (
-	"example.com/app"
+	"example.com/rest"
 	"net/http"
 )
 
 type userHandler struct {
-	userService   app.UserService
+	userService   rest.UserService
 	generateToken func(userID int) (string, error)
 }
 
-func NewUserHandler(userService app.UserService, generateToken func(int) (string, error)) *userHandler {
+func NewUserHandler(userService rest.UserService, generateToken func(int) (string, error)) *userHandler {
 	return &userHandler{
 		userService:   userService,
 		generateToken: generateToken,
@@ -18,7 +18,7 @@ func NewUserHandler(userService app.UserService, generateToken func(int) (string
 }
 
 func (h *userHandler) register(w http.ResponseWriter, r *http.Request) {
-	var req app.UserCredentials
+	var req rest.UserCredentials
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return
@@ -34,7 +34,7 @@ func (h *userHandler) register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *userHandler) login(w http.ResponseWriter, r *http.Request) {
-	var req app.UserCredentials
+	var req rest.UserCredentials
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return
@@ -78,7 +78,7 @@ func (h *userHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req app.UpdateUser
+	var req rest.UpdateUser
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return

@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"example.com/app/config"
+	"example.com/rest/config"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"

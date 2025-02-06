@@ -1,4 +1,4 @@
-package app
+package rest
 
 type AuthService interface {
 	GenerateToken(userID int) (string, error)

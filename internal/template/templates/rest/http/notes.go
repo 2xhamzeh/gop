@@ -1,7 +1,7 @@
 package http
 
 import (
-	"example.com/app"
+	"example.com/rest"
 	"net/http"
 	"strconv"
 
@@ -9,10 +9,10 @@ import (
 )
 
 type noteHandler struct {
-	noteService app.NoteService
+	noteService rest.NoteService
 }
 
-func NewNoteHandler(noteService app.NoteService) *noteHandler {
+func NewNoteHandler(noteService rest.NoteService) *noteHandler {
 	return &noteHandler{noteService: noteService}
 }
 
@@ -23,7 +23,7 @@ func (h *noteHandler) createNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req app.CreateNote
+	var req rest.CreateNote
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return
@@ -63,11 +63,11 @@ func (h *noteHandler) updateNote(w http.ResponseWriter, r *http.Request) {
 
 	noteID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, app.Errorf(app.INVALID_ERROR, "invalid note ID"))
+		writeError(w, rest.Errorf(rest.INVALID_ERROR, "invalid note ID"))
 		return
 	}
 
-	var req app.UpdateNote
+	var req rest.UpdateNote
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return
@@ -91,7 +91,7 @@ func (h *noteHandler) deleteNote(w http.ResponseWriter, r *http.Request) {
 
 	noteID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, app.Errorf(app.INVALID_ERROR, "invalid note ID"))
+		writeError(w, rest.Errorf(rest.INVALID_ERROR, "invalid note ID"))
 		return
 	}
 

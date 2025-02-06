@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"example.com/app"
+	"example.com/rest"
 	"github.com/google/uuid"
 )
 
@@ -45,12 +45,12 @@ func NewAuthMiddleware(validate func(string) (int, error)) func(http.Handler) ht
 func extractBearerToken(r *http.Request) (string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		return "", app.Errorf(app.UNAUTHORIZED_ERROR, "authorization header required")
+		return "", rest.Errorf(rest.UNAUTHORIZED_ERROR, "authorization header required")
 	}
 
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "", app.Errorf(app.UNAUTHORIZED_ERROR, "invalid authorization header format")
+		return "", rest.Errorf(rest.UNAUTHORIZED_ERROR, "invalid authorization header format")
 	}
 
 	return parts[1], nil
@@ -60,7 +60,7 @@ func extractBearerToken(r *http.Request) (string, error) {
 func getUserID(r *http.Request) (int, error) {
 	userID, ok := r.Context().Value(userIDKey).(int)
 	if !ok {
-		return 0, app.Errorf(app.UNAUTHORIZED_ERROR, "user not authenticated")
+		return 0, rest.Errorf(rest.UNAUTHORIZED_ERROR, "user not authenticated")
 	}
 	return userID, nil
 }
@@ -106,7 +106,7 @@ func recovery(next http.Handler) http.Handler {
 			err := recover()
 			if err != nil {
 				slog.Error("panic occurred", "error", err, "request_id", r.Context().Value(requestIDKey))
-				writeError(w, app.Errorf(app.INTERNAL_ERROR, "internal server error"))
+				writeError(w, rest.Errorf(rest.INTERNAL_ERROR, "internal server error"))
 			}
 		}()
 
@@ -117,10 +117,10 @@ func recovery(next http.Handler) http.Handler {
 
 // Not found handler
 func notFound(w http.ResponseWriter, r *http.Request) {
-	writeError(w, app.Errorf(app.NOTFOUND_ERROR, "resource not found"))
+	writeError(w, rest.Errorf(rest.NOTFOUND_ERROR, "resource not found"))
 }
 
 // Method not allowed handler
 func methodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	writeError(w, app.Errorf(app.INVALID_ERROR, "method not allowed"))
+	writeError(w, rest.Errorf(rest.INVALID_ERROR, "method not allowed"))
 }

@@ -1,10 +1,15 @@
+/*
+Copyright © 2025 2xhamzeh
+*/
 package template
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -15,41 +20,29 @@ type templateConfig struct {
 	oldModuleName string   // Module placeholder (e.g., "example.com/app")
 }
 
-func CreateFromTemplate(config templateConfig) error {
-	// Read go.mod file from current directory
-	modFile, err := os.ReadFile("go.mod")
-	if err != nil {
-		return fmt.Errorf("failed to read go.mod: %w", err)
-	}
+func CreateFromTemplate(config templateConfig, moduleName string) error {
 
-	// Get first line and split by spaces to get module name
-	lines := strings.Split(string(modFile), "\n")
-	if len(lines) == 0 {
-		return fmt.Errorf("empty go.mod file")
+	// create go.mod
+	cmd := exec.Command("go", "mod", "init", moduleName)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create go.mod, %s", strings.TrimSpace(stderr.String()))
 	}
-
-	parts := strings.Fields(lines[0])
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid go.mod file: missing module name")
-	}
-
-	moduleName := parts[1]
 
 	// Walk through template files
-	err = fs.WalkDir(config.fs, config.basePath, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(config.fs, config.basePath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
+		// skip root directory
 		if path == config.basePath {
 			return nil
 		}
 
+		// skip .keep files
 		if strings.HasSuffix(path, ".keep") {
-			return nil
-		}
-
-		if strings.HasSuffix(path, ".DS_Store") {
 			return nil
 		}
 
@@ -68,9 +61,6 @@ func CreateFromTemplate(config templateConfig) error {
 
 		content = []byte(strings.ReplaceAll(string(content), config.oldModuleName, moduleName))
 
-		// code here:
-		//
-
 		oldRootPkg := filepath.Base(config.oldModuleName)
 		newRootPkg := filepath.Base(moduleName)
 
@@ -85,7 +75,6 @@ func CreateFromTemplate(config templateConfig) error {
 		if err != nil {
 			return fmt.Errorf("failed to write file %s: %w", relPath, err)
 		}
-
 		return nil
 	})
 
@@ -93,5 +82,12 @@ func CreateFromTemplate(config templateConfig) error {
 		return fmt.Errorf("failed to create template: %w", err)
 	}
 
+	cmd = exec.Command("go", "mod", "tidy")
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create go.mod, %s", strings.TrimSpace(stderr.String()))
+	}
+
 	return nil
+
 }

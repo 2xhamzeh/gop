@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var emptyCmd = &cobra.Command{
-	Use:          "empty [module-name]",
-	Short:        "Setup an empty project",
+var restCmd = &cobra.Command{
+	Use:          "rest [module-name]",
+	Short:        "Setup a REST API project",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 {
@@ -20,10 +20,10 @@ var emptyCmd = &cobra.Command{
 		} else if len(args) > 1 {
 			return errors.New("too many arguments")
 		}
-		return template.CreateFromTemplate(template.EmptyTemplate, args[0])
+		return template.CreateFromTemplate(template.RestTemplate, args[0])
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(emptyCmd)
+	rootCmd.AddCommand(restCmd)
 }

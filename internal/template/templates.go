@@ -1,3 +1,6 @@
+/*
+Copyright © 2025 2xhamzeh
+*/
 package template
 
 import "embed"
@@ -11,8 +14,8 @@ var EmptyTemplate = templateConfig{
 	oldModuleName: "example.com/app",
 }
 
-var AppTemplate = templateConfig{
+var RestTemplate = templateConfig{
 	fs:            templateFS,
-	basePath:      "templates/app",
-	oldModuleName: "example.com/app",
+	basePath:      "templates/rest",
+	oldModuleName: "example.com/rest",
 }

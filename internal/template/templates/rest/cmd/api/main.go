@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"example.com/app/config"
-	"example.com/app/http"
-	"example.com/app/jwt"
-	"example.com/app/postgres"
+	"example.com/rest/config"
+	"example.com/rest/http"
+	"example.com/rest/jwt"
+	"example.com/rest/postgres"
 	"github.com/lmittmann/tint"
 )
 

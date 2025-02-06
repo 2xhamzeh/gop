@@ -2,7 +2,7 @@ package http
 
 import (
 	"encoding/json"
-	"example.com/app"
+	"example.com/rest"
 	"log/slog"
 	"net/http"
 )
@@ -13,19 +13,19 @@ type errorResponse struct {
 }
 
 var codes = map[string]int{
-	app.CONFLICT_ERROR:     http.StatusConflict,
-	app.INVALID_ERROR:      http.StatusBadRequest,
-	app.NOTFOUND_ERROR:     http.StatusNotFound,
-	app.UNAUTHORIZED_ERROR: http.StatusUnauthorized,
-	app.INTERNAL_ERROR:     http.StatusInternalServerError,
+	rest.CONFLICT_ERROR:     http.StatusConflict,
+	rest.INVALID_ERROR:      http.StatusBadRequest,
+	rest.NOTFOUND_ERROR:     http.StatusNotFound,
+	rest.UNAUTHORIZED_ERROR: http.StatusUnauthorized,
+	rest.INTERNAL_ERROR:     http.StatusInternalServerError,
 }
 
 func writeError(w http.ResponseWriter, err error) {
 	errResp := errorResponse{
-		Message: app.ErrorMessage(err),
-		Fields:  app.ErrorFields(err),
+		Message: rest.ErrorMessage(err),
+		Fields:  rest.ErrorFields(err),
 	}
-	status := codes[app.ErrorCode(err)]
+	status := codes[rest.ErrorCode(err)]
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

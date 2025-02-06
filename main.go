@@ -1,5 +1,5 @@
 /*
-Copyright © 2025 2xhamzeh github.com/2xhamzeh
+Copyright © 2025 2xhamzeh
 */
 package main
 
