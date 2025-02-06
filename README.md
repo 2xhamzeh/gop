@@ -16,24 +16,13 @@ go install github.com/2xhamzeh/gop@latest
    mkdir my-project && cd my-project
    ```
 
-2. Initialize a Go module:
+2. Generate project from template:
 
    ```bash
-   go mod init <module-name>
-   ```
-
-3. Generate project from template:
-
-   ```bash
-   gop <template-name>
-   ```
-
-4. Install dependencies:
-   ```bash
-   go mod tidy
+   gop [template-name] [module-name]
    ```
 
 ## Available Templates
 
 - `empty` - Empty project
-- `app` - REST API with authentication, postgreSQL, Docker files and more
+- `rest` - REST API with authentication, postgreSQL, Docker files and more
