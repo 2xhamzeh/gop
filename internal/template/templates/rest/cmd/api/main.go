@@ -1,63 +1,57 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"os"
-	"time"
 
-	"example.com/rest/config"
-	"example.com/rest/http"
-	"example.com/rest/jwt"
-	"example.com/rest/postgres"
-	"github.com/lmittmann/tint"
+	"example.com/rest/internal/config"
+	"example.com/rest/internal/http"
+	"example.com/rest/internal/jwt"
+	"example.com/rest/internal/postgres"
 )
 
 func main() {
-	if err := run(); err != nil {
-		log.Fatalf("Failed to initialize application: %v", err)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
+	if err := run(logger); err != nil {
+		logger.Error("server failed", "error", err)
 	}
 }
 
-func run() error {
-	slog.SetDefault(slog.New(
-		tint.NewHandler(os.Stdout, &tint.Options{
-			Level:      slog.LevelDebug,
-			TimeFormat: time.Kitchen,
-			AddSource:  true,
-		}),
-	))
+func run(logger *slog.Logger) error {
 
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	slog.Info("loaded configuration")
+	logger.Info("loaded configuration")
 
 	db, err := postgres.New(cfg.DB.GetDSN())
 	if err != nil {
 		return err
 	}
 
-	slog.Info("connected to database")
+	logger.Info("connected to database")
 
-	userService := postgres.NewUserService(db)
-	noteService := postgres.NewNoteService(db)
-	authService := jwt.NewAuthService(cfg.JWT.Secret, cfg.JWT.Duration)
+	userService := postgres.NewUserService(db, logger)
+	authService := jwt.NewAuthService(cfg.JWT.Secret, cfg.JWT.Duration, logger)
+	noteService := postgres.NewNoteService(db, logger)
 
-	slog.Info("initialized services")
+	logger.Info("initialized services")
 
 	userHandler := http.NewUserHandler(userService, authService.GenerateToken)
+	middlewares := http.NewMiddlewares(authService.ValidateToken, logger)
 	noteHandler := http.NewNoteHandler(noteService)
-	authMiddleware := http.NewAuthMiddleware(authService.ValidateToken)
 
-	slog.Info("initialized handlers")
+	logger.Info("initialized handlers")
 
-	router := http.NewRouter(userHandler, noteHandler, authMiddleware)
+	router := http.NewRouter(userHandler, noteHandler, middlewares)
 
-	slog.Info("initialized router")
+	logger.Info("initialized routes")
 
-	server := http.New(cfg.Server.GetAddress(), router)
+	server := http.New(cfg.Server.GetAddress(), router, logger)
 	return server.Start()
 }

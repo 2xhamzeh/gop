@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the static binary
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/notesapp ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin ./cmd/api
 
 # Final stage
 FROM scratch
@@ -25,7 +25,7 @@ WORKDIR /app
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 # Copy binary
-COPY --from=builder /app/notesapp .
+COPY --from=builder /app/bin .
 
 # Set timezone env variable
 ENV TZ=UTC
@@ -37,4 +37,4 @@ USER 1000:1000
 EXPOSE 8080
 
 # Command to run
-ENTRYPOINT ["/app/notesapp"]
+ENTRYPOINT ["/app/bin"]

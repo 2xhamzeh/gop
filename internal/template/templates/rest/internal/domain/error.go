@@ -1,7 +1,6 @@
-package rest
+package domain
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -23,32 +22,8 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("code: %s, message: %s", e.Code, e.Message)
 }
 
-func ErrorCode(err error) string {
-	var e *Error
-	if errors.As(err, &e) {
-		return e.Code
-	}
-	return INTERNAL_ERROR
-}
-
-func ErrorMessage(err error) string {
-	var e *Error
-	if errors.As(err, &e) {
-		return e.Message
-	}
-	return "Internal server error."
-}
-
-func ErrorFields(err error) []string {
-	var e *Error
-	if errors.As(err, &e) {
-		return e.Fields
-	}
-	return nil
-}
-
 // Factory function for domain errors
-func Errorf(code, format string, args ...any) *Error {
+func Errorf(code, format string, args ...any) error {
 	return &Error{
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),
@@ -56,7 +31,7 @@ func Errorf(code, format string, args ...any) *Error {
 }
 
 // Factory function for domain errors with fields
-func ErrorfWithFields(code, format string, fields []string, args ...any) *Error {
+func ErrorfWithFields(code, format string, fields []string, args ...any) error {
 	return &Error{
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),

@@ -1,4 +1,4 @@
-package rest
+package domain
 
 import (
 	"strings"
@@ -22,13 +22,6 @@ type CreateNote struct {
 type UpdateNote struct {
 	Title   *string `json:"title"`
 	Content *string `json:"content"`
-}
-
-type NoteService interface {
-	Create(userID int, req *CreateNote) (*Note, error)
-	GetAll(userID int) ([]Note, error)
-	Update(userID int, noteID int, req *UpdateNote) (*Note, error)
-	Delete(userID int, noteID int) error
 }
 
 func (nr *CreateNote) Validate() []string {

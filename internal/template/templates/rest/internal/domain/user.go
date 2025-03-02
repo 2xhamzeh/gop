@@ -1,4 +1,4 @@
-package rest
+package domain
 
 import (
 	"strings"
@@ -14,21 +14,12 @@ type User struct {
 }
 
 type UserCredentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" validate:"required, min=3, max=50"`
+	Password string `json:"password" validate:"required, min=8, max=50"`
 }
 
 type UpdateUser struct {
 	Username *string `json:"username"`
-}
-
-type UserService interface {
-	Create(req *UserCredentials) (*User, error)
-	Get(id int) (*User, error)
-	GetByUsername(username string) (*User, error)
-	Authenticate(req *UserCredentials) (*User, error)
-	Update(id int, req *UpdateUser) (*User, error)
-	Delete(id int) error
 }
 
 func (u *UserCredentials) Validate() []string {

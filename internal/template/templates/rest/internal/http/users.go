@@ -1,16 +1,26 @@
 package http
 
 import (
-	"example.com/rest"
 	"net/http"
+
+	"example.com/rest/internal/domain"
 )
 
+type userService interface {
+	Create(req *domain.UserCredentials) (*domain.User, error)
+	Get(id int) (*domain.User, error)
+	GetByUsername(username string) (*domain.User, error)
+	Authenticate(req *domain.UserCredentials) (*domain.User, error)
+	Update(id int, req *domain.UpdateUser) (*domain.User, error)
+	Delete(id int) error
+}
+
 type userHandler struct {
-	userService   rest.UserService
+	userService   userService
 	generateToken func(userID int) (string, error)
 }
 
-func NewUserHandler(userService rest.UserService, generateToken func(int) (string, error)) *userHandler {
+func NewUserHandler(userService userService, generateToken func(int) (string, error)) *userHandler {
 	return &userHandler{
 		userService:   userService,
 		generateToken: generateToken,
@@ -18,7 +28,7 @@ func NewUserHandler(userService rest.UserService, generateToken func(int) (strin
 }
 
 func (h *userHandler) register(w http.ResponseWriter, r *http.Request) {
-	var req rest.UserCredentials
+	var req domain.UserCredentials
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return
@@ -34,7 +44,7 @@ func (h *userHandler) register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *userHandler) login(w http.ResponseWriter, r *http.Request) {
-	var req rest.UserCredentials
+	var req domain.UserCredentials
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return
@@ -78,7 +88,7 @@ func (h *userHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req rest.UpdateUser
+	var req domain.UpdateUser
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return

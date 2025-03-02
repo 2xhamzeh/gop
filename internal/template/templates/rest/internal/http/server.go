@@ -3,7 +3,7 @@ package http
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,9 +20,10 @@ const (
 
 type server struct {
 	server *http.Server
+	logger *slog.Logger
 }
 
-func New(addr string, router http.Handler) *server {
+func New(addr string, router http.Handler, logger *slog.Logger) *server {
 	return &server{
 		server: &http.Server{
 			Addr:         addr,
@@ -31,6 +32,7 @@ func New(addr string, router http.Handler) *server {
 			ReadTimeout:  defaultReadTimeout,
 			WriteTimeout: defaultWriteTimeout,
 		},
+		logger: logger,
 	}
 }
 
@@ -45,17 +47,17 @@ func (s *server) Start() error {
 		defer cancel()
 
 		if err := s.server.Shutdown(ctx); err != nil {
-			log.Printf("HTTP shutdown error: %v", err)
+			s.logger.Error("failed to shutdown server", "error", err)
 		}
 		close(done)
 	}()
 
-	log.Printf("Starting server on %s", s.server.Addr)
+	s.logger.Info("starting server", "address", s.server.Addr)
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("HTTP server failed: %w", err)
 	}
 
 	<-done
-	log.Println("Server stopped gracefully")
+	s.logger.Info("server stopped gracefully")
 	return nil
 }

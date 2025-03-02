@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"example.com/rest"
+	"example.com/rest/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -16,12 +16,14 @@ type claims struct {
 type authService struct {
 	secret   string
 	duration time.Duration
+	logger   *slog.Logger
 }
 
-func NewAuthService(secret string, duration time.Duration) rest.AuthService {
+func NewAuthService(secret string, duration time.Duration, logger *slog.Logger) *authService {
 	return &authService{
 		secret:   secret,
 		duration: duration,
+		logger:   logger,
 	}
 }
 
@@ -37,8 +39,8 @@ func (s *authService) GenerateToken(userID int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.secret))
 	if err != nil {
-		slog.Error("failed to generate token", "error", err, "userID", userID)
-		return "", rest.Errorf(rest.INTERNAL_ERROR, "failed to generate token")
+		s.logger.Error("failed to generate token", "error", err, "userID", userID)
+		return "", domain.Errorf(domain.INTERNAL_ERROR, "failed to generate token")
 	}
 
 	return tokenString, nil
@@ -47,18 +49,18 @@ func (s *authService) GenerateToken(userID int) (string, error) {
 func (s *authService) ValidateToken(tokenString string) (int, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, rest.Errorf(rest.UNAUTHORIZED_ERROR, "invalid token")
+			return nil, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid token")
 		}
 		return []byte(s.secret), nil
 	})
 
 	if err != nil {
-		return 0, rest.Errorf(rest.UNAUTHORIZED_ERROR, "invalid token")
+		return 0, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid token")
 	}
 
 	if claims, ok := token.Claims.(*claims); ok && token.Valid {
 		return claims.UserID, nil
 	}
 
-	return 0, rest.Errorf(rest.UNAUTHORIZED_ERROR, "invalid token claims")
+	return 0, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid token claims")
 }
