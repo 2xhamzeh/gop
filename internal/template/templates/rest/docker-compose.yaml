@@ -4,11 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${SERVER_PORT}:${SERVER_PORT}"
+      - "${SERVER_PORT}:${SERVER_PORT}" # only expose port of the app, everything else within the docker network
     environment:
       - APP_ENV=${APP_ENV}
-      - DB_HOST=db
-      - DB_PORT=5432
+      - DB_HOST=db # db is the name of the database container
+      - DB_PORT=5432 # default postgres port
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}

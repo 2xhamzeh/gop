@@ -9,9 +9,8 @@ import (
 type userService interface {
 	Create(req *domain.UserCredentials) (*domain.User, error)
 	Get(id int) (*domain.User, error)
-	GetByUsername(username string) (*domain.User, error)
 	Authenticate(req *domain.UserCredentials) (*domain.User, error)
-	Update(id int, req *domain.UpdateUser) (*domain.User, error)
+	Update(id int, req *domain.UserPatch) (*domain.User, error)
 	Delete(id int) error
 }
 
@@ -88,7 +87,7 @@ func (h *userHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req domain.UpdateUser
+	var req domain.UserPatch
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, err)
 		return

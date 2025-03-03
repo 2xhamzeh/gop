@@ -36,19 +36,17 @@ func run(logger *slog.Logger) error {
 
 	logger.Info("connected to database")
 
-	userService := postgres.NewUserService(db, logger)
+	userService := postgres.NewUserService(db)
 	authService := jwt.NewAuthService(cfg.JWT.Secret, cfg.JWT.Duration, logger)
-	noteService := postgres.NewNoteService(db, logger)
 
 	logger.Info("initialized services")
 
 	userHandler := http.NewUserHandler(userService, authService.GenerateToken)
 	middlewares := http.NewMiddlewares(authService.ValidateToken, logger)
-	noteHandler := http.NewNoteHandler(noteService)
 
 	logger.Info("initialized handlers")
 
-	router := http.NewRouter(userHandler, noteHandler, middlewares)
+	router := http.NewRouter(userHandler, middlewares)
 
 	logger.Info("initialized routes")
 

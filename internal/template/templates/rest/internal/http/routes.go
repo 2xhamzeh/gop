@@ -9,7 +9,6 @@ import (
 
 func NewRouter(
 	userHandler *userHandler,
-	noteHandler *noteHandler,
 	middlewares *middlewares,
 ) *chi.Mux {
 	r := chi.NewRouter()
@@ -40,11 +39,6 @@ func NewRouter(
 			r.Get("/user", userHandler.getUser)
 			r.Put("/user", userHandler.updateUser)
 			r.Delete("/user", userHandler.deleteUser)
-
-			r.Get("/notes", noteHandler.getUserNotes)
-			r.Post("/notes", noteHandler.createNote)
-			r.Put("/notes/{id}", noteHandler.updateNote)
-			r.Delete("/notes/{id}", noteHandler.deleteNote)
 		})
 	})
 

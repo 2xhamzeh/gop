@@ -1,42 +1,56 @@
 package domain
 
 import (
-	"strings"
+	"regexp"
 	"time"
 )
 
 type User struct {
 	ID           int       `json:"id"`
-	Username     string    `json:"username"`
+	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	Version      int       `json:"-"`
 }
 
 type UserCredentials struct {
-	Username string `json:"username" validate:"required, min=3, max=50"`
-	Password string `json:"password" validate:"required, min=8, max=50"`
+	Email    string `json:"username"`
+	Password string `json:"password"`
 }
 
-type UpdateUser struct {
-	Username *string `json:"username"`
+type UserPatch struct {
+	Email       *string `json:"email"`
+	NewPassword *string `json:"new_password"`
+	Password    string  `json:"password"`
+}
+
+// validation
+
+var (
+	RgxEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+)
+
+func isEmail(value string) bool {
+	if len(value) > 254 {
+		return false
+	}
+
+	return RgxEmail.MatchString(value)
 }
 
 func (u *UserCredentials) Validate() []string {
 	fields := []string{}
 
-	username := strings.TrimSpace(u.Username)
-	if username == "" {
-		fields = append(fields, "username is required")
-	}
-	if len(username) < 3 || len(username) > 50 {
-		fields = append(fields, "username must be between 3 and 50 characters")
+	if u.Email == "" {
+		fields = append(fields, "email is required")
+	} else if !isEmail(u.Email) {
+		fields = append(fields, "invalid email")
 	}
 
 	if u.Password == "" {
 		fields = append(fields, "password is required")
-	}
-	if len(u.Password) < 8 || len(u.Password) > 50 {
+	} else if len(u.Password) < 8 || len(u.Password) > 50 {
 		fields = append(fields, "password must be between 8 and 50 characters")
 	}
 
@@ -47,19 +61,30 @@ func (u *UserCredentials) Validate() []string {
 	return fields
 }
 
-func (u *UpdateUser) Validate() []string {
+func (u *UserPatch) Validate() []string {
 	fields := []string{}
 
-	if u.Username == nil {
-		fields = append(fields, "update requires at least one field")
+	if u.Email == nil && u.NewPassword == nil {
+		fields = append(fields, "no fields to patch")
 		return fields
 	}
 
-	if u.Username != nil {
-		username := strings.TrimSpace(*u.Username)
-		if len(username) < 3 || len(username) > 50 {
-			fields = append(fields, "username must be between 3 and 50 characters")
+	if u.Email != nil {
+		if !isEmail(*u.Email) {
+			fields = append(fields, "invalid email")
 		}
+	}
+
+	if u.NewPassword != nil {
+		if len(*u.NewPassword) < 8 || len(*u.NewPassword) > 50 {
+			fields = append(fields, "new password must be between 8 and 50 characters")
+		}
+	}
+
+	if u.Password == "" {
+		fields = append(fields, "password is required")
+	} else if len(u.Password) < 8 || len(u.Password) > 50 {
+		fields = append(fields, "password must be between 8 and 50 characters")
 	}
 
 	if len(fields) == 0 {

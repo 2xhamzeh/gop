@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"database/sql"
-	"log/slog"
 
 	"example.com/rest/internal/domain"
 	"github.com/lib/pq"
@@ -10,109 +9,94 @@ import (
 )
 
 type userService struct {
-	db     *sql.DB
-	logger *slog.Logger
+	db *sql.DB
 }
 
-func NewUserService(db *sql.DB, logger *slog.Logger) *userService {
+func NewUserService(db *sql.DB) *userService {
 	return &userService{
-		db:     db,
-		logger: logger,
+		db: db,
 	}
 }
 
+// Create takes a UserCredentials and inserts a new user into the database.
+// It returns the created user or an error if the operation fails.
 func (s *userService) Create(req *domain.UserCredentials) (*domain.User, error) {
-
+	// validate input
 	fields := req.Validate()
 	if fields != nil {
 		return nil, domain.ErrorfWithFields(domain.INVALID_ERROR, "invalid input", fields)
 	}
 
+	// hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		s.logger.Error("failed to hash password", "error", err)
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "internal error")
+		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to hash password: %v", err)
 	}
 
+	// insert user
 	var user domain.User
 	err = s.db.QueryRow(`
-        INSERT INTO users (username, password_hash)
+        INSERT INTO users (email, password_hash)
         VALUES ($1, $2)
-        RETURNING id, username, created_at, updated_at`,
-		req.Username, string(hashedPassword),
-	).Scan(&user.ID, &user.Username, &user.CreatedAt, &user.UpdatedAt)
+        RETURNING id, email, created_at, updated_at`,
+		req.Email, string(hashedPassword),
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		// Check for unique constraint violation, i.e. username already exists
+		// Check for unique constraint violation: email already exists
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-			return nil, domain.Errorf(domain.CONFLICT_ERROR, "username already exists")
+			return nil, domain.Errorf(domain.CONFLICT_ERROR, "email already exists")
 		}
-		s.logger.Error("failed to create user", "error", err)
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "internal error")
+		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to create user: %v", err)
 	}
-
 	return &user, nil
 }
 
+// Get takes a user ID and finds the user in the database.
+// It returns the user or an error if the operation fails.
 func (s *userService) Get(id int) (*domain.User, error) {
+	// find user
 	var user domain.User
 	err := s.db.QueryRow(`
-        SELECT id, username, created_at 
+        SELECT id, email, created_at, updated_at
         FROM users 
         WHERE id = $1`,
 		id,
-	).Scan(&user.ID, &user.Username, &user.CreatedAt)
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.Errorf(domain.NOTFOUND_ERROR, "user not found")
 		}
-		s.logger.Error("failed to get user", "error", err)
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "internal error")
+		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to get user: %v", err)
 	}
 
 	return &user, nil
 }
 
-func (s *userService) GetByUsername(username string) (*domain.User, error) {
-	var user domain.User
-	err := s.db.QueryRow(`
-        SELECT id, username, created_at 
-        FROM users 
-        WHERE username = $1`,
-		username,
-	).Scan(&user.ID, &user.Username, &user.CreatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, domain.Errorf(domain.NOTFOUND_ERROR, "user not found")
-		}
-		s.logger.Error("failed to get user", "error", err)
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "internal error")
-	}
-
-	return &user, nil
-}
-
+// Authenticate takes a UserCredentials and checks if the user exists and the password is correct.
+// It returns the user or an error if the operation fails.
 func (s *userService) Authenticate(req *domain.UserCredentials) (*domain.User, error) {
-
+	// validate input
 	fields := req.Validate()
 	if fields != nil {
 		return nil, domain.ErrorfWithFields(domain.INVALID_ERROR, "invalid input", fields)
 	}
 
+	// find user
 	var user domain.User
 	err := s.db.QueryRow(`
-        SELECT id, username, password_hash, created_at 
+        SELECT id, email, password_hash, created_at, updated_at
         FROM users 
-        WHERE username = $1`,
-		req.Username,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt)
+        WHERE email = $1`,
+		req.Email,
+	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid credentials")
 		}
-		s.logger.Error("failed to authenticate user", "error", err)
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "internal error")
+		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to authenticate user: %v", err)
 	}
 
+	// compare passwords
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
 	if err != nil {
 		return nil, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid credentials")
@@ -121,43 +105,79 @@ func (s *userService) Authenticate(req *domain.UserCredentials) (*domain.User, e
 	return &user, nil
 }
 
-func (s *userService) Update(id int, req *domain.UpdateUser) (*domain.User, error) {
-
+// Update takes a user ID and a UserPatch and updates the user in the database.
+// It returns the updated user or an error if the operation fails.
+func (s *userService) Update(id int, req *domain.UserPatch) (*domain.User, error) {
+	// validate input
 	fields := req.Validate()
 	if fields != nil {
 		return nil, domain.ErrorfWithFields(domain.INVALID_ERROR, "invalid input", fields)
 	}
 
+	// get user
 	var user domain.User
 	err := s.db.QueryRow(`
-        UPDATE users 
-        SET username = $1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-        RETURNING id, username, created_at, updated_at`,
-		req.Username, id,
-	).Scan(&user.ID, &user.Username, &user.CreatedAt, &user.UpdatedAt)
+		SELECT email, password_hash, version
+		FROM users
+		WHERE id = $1`,
+		id,
+	).Scan(&user.Email, &user.PasswordHash, &user.Version)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.Errorf(domain.NOTFOUND_ERROR, "user not found")
 		}
-		s.logger.Error("failed to update user", "error", err)
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "internal error")
+		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to get user: %v", err)
+	}
+
+	// compare passwords
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
+	if err != nil {
+		return nil, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid password")
+	}
+
+	// check which fields to update
+	if req.Email != nil {
+		user.Email = *req.Email
+	}
+
+	if req.NewPassword != nil {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to hash password: %v", err)
+		}
+		user.PasswordHash = string(hashedPassword)
+	}
+
+	// update user
+	// use version to insure no concurrent updates
+	err = s.db.QueryRow(`
+        UPDATE users
+        SET email = $1, password_hash = $2, updated_at = CURRENT_TIMESTAMP, version = version + 1
+        WHERE id = $3 AND version = $4
+        RETURNING id, email, created_at, updated_at`,
+		user.Email, user.PasswordHash, id, user.Version,
+	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.Errorf(domain.CONFLICT_ERROR, "conflict updating user")
+		}
+		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to update user: %v", err)
 	}
 
 	return &user, nil
 }
 
+// Delete takes a user ID and deletes the user from the database.
+// It returns an error if the operation fails.
 func (s *userService) Delete(id int) error {
 	result, err := s.db.Exec(`DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
-		s.logger.Error("error deleting user", "error", err)
-		return domain.Errorf(domain.INTERNAL_ERROR, "internal error")
+		return domain.Errorf(domain.INTERNAL_ERROR, "error deleting user: %v", err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		s.logger.Error("error checking rows affected", "error", err)
-		return domain.Errorf(domain.INTERNAL_ERROR, "internal error")
+		return domain.Errorf(domain.INTERNAL_ERROR, "error getting rows affected: %v", err)
 	}
 
 	if rows == 0 {
