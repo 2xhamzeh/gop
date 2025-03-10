@@ -1,43 +1,37 @@
 package http
 
 import (
-	"net/http"
-
-	"example.com/rest/internal/domain"
 	"github.com/go-chi/chi/v5"
 )
 
+// NewRouter creates a new router, registers all routes and middlewares and returns the router.
+// It uses chi as the underlying router.
 func NewRouter(
 	userHandler *userHandler,
 	middlewares *middlewares,
 ) *chi.Mux {
 	r := chi.NewRouter()
 
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		writeError(w, domain.Errorf(domain.NOTFOUND_ERROR, "resource not found"))
-	})
-
-	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		writeHTTPError(w, http.StatusMethodNotAllowed, "method not allowed")
-	})
-
+	// Global middlewares
 	r.Use(
 		middlewares.RequestID,
 		middlewares.Logger,
 		middlewares.Recovery,
 	)
 
+	r.NotFound(middlewares.NotFound)
+
+	r.MethodNotAllowed(middlewares.MethodNotAllowed)
+
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Group(func(r chi.Router) {
-			r.Post("/user/register", userHandler.register)
-			r.Post("/user/login", userHandler.login)
-		})
+		r.Post("/user/register", userHandler.register)
+		r.Post("/user/login", userHandler.login)
 
 		r.Group(func(r chi.Router) {
 			r.Use(middlewares.Auth)
 
 			r.Get("/user", userHandler.getUser)
-			r.Put("/user", userHandler.updateUser)
+			r.Patch("/user", userHandler.updateUser)
 			r.Delete("/user", userHandler.deleteUser)
 		})
 	})

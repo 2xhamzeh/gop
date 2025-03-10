@@ -11,12 +11,12 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
+	// Initialize logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	if err := run(logger); err != nil {
 		logger.Error("migration failed", "error", err)
@@ -25,33 +25,27 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
+	// Load environment variables
+	godotenv.Load()
+	// Load database URL
+	DB_URL, err := config.LoadDB_URL()
+	if err != nil {
+		return err
+	}
+	// Create migrator
+	m, err := migrate.New("file://migrations", DB_URL)
+	if err != nil {
+		return fmt.Errorf("failed to create migrator: %w", err)
+	}
+	defer m.Close()
 
-	var dbURL string
-	flag.StringVar(&dbURL, "db-url", "", "Database URL (overrides config)")
+	// Parse command line arguments and run the appropriate command
 	flag.Parse()
-
 	args := flag.Args()
 	if len(args) == 0 {
 		return fmt.Errorf("command required: up, down, or version")
 	}
 	command := args[0]
-
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	if dbURL == "" {
-		dbURL = cfg.DB.GetDSN()
-	}
-
-	logger.Info("initializing migrator", "db_url", dbURL)
-
-	m, err := migrate.New("file://migrations", dbURL)
-	if err != nil {
-		return fmt.Errorf("failed to create migrator: %w", err)
-	}
-	defer m.Close()
 
 	switch command {
 	case "up":

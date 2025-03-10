@@ -18,12 +18,15 @@ const (
 	defaultShutdownPeriod = 30 * time.Second
 )
 
+// server represents an HTTP server.
 type server struct {
 	server *http.Server
 	logger *slog.Logger
 }
 
-func New(addr string, router http.Handler, logger *slog.Logger) *server {
+// NewServer creates a new HTTP server. It takes in an address in the format "host:port",
+// a router, and a logger.
+func NewServer(addr string, router http.Handler, logger *slog.Logger) *server {
 	return &server{
 		server: &http.Server{
 			Addr:         addr,
@@ -36,6 +39,9 @@ func New(addr string, router http.Handler, logger *slog.Logger) *server {
 	}
 }
 
+// Start starts the HTTP server. It listens for incoming requests and blocks until the server is stopped.
+// It also listens for the interrupt signal and gracefully shuts down the server.
+// It returns an error if the server fails to start or shutdown.
 func (s *server) Start() error {
 	done := make(chan struct{})
 	go func() {

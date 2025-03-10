@@ -4,15 +4,16 @@ import (
 	"database/sql"
 
 	"example.com/rest/internal/domain"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type userService struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewUserService(db *sql.DB) *userService {
+func NewUserService(db *sqlx.DB) *userService {
 	return &userService{
 		db: db,
 	}
@@ -22,9 +23,9 @@ func NewUserService(db *sql.DB) *userService {
 // It returns the created user or an error if the operation fails.
 func (s *userService) Create(req *domain.UserCredentials) (*domain.User, error) {
 	// validate input
-	fields := req.Validate()
-	if fields != nil {
-		return nil, domain.ErrorfWithFields(domain.INVALID_ERROR, "invalid input", fields)
+	err := req.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	// hash password
@@ -76,14 +77,14 @@ func (s *userService) Get(id int) (*domain.User, error) {
 // It returns the user or an error if the operation fails.
 func (s *userService) Authenticate(req *domain.UserCredentials) (*domain.User, error) {
 	// validate input
-	fields := req.Validate()
-	if fields != nil {
-		return nil, domain.ErrorfWithFields(domain.INVALID_ERROR, "invalid input", fields)
+	err := req.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	// find user
 	var user domain.User
-	err := s.db.QueryRow(`
+	err = s.db.QueryRow(`
         SELECT id, email, password_hash, created_at, updated_at
         FROM users 
         WHERE email = $1`,
@@ -109,14 +110,14 @@ func (s *userService) Authenticate(req *domain.UserCredentials) (*domain.User, e
 // It returns the updated user or an error if the operation fails.
 func (s *userService) Update(id int, req *domain.UserPatch) (*domain.User, error) {
 	// validate input
-	fields := req.Validate()
-	if fields != nil {
-		return nil, domain.ErrorfWithFields(domain.INVALID_ERROR, "invalid input", fields)
+	err := req.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	// get user
 	var user domain.User
-	err := s.db.QueryRow(`
+	err = s.db.QueryRow(`
 		SELECT email, password_hash, version
 		FROM users
 		WHERE id = $1`,
@@ -128,6 +129,8 @@ func (s *userService) Update(id int, req *domain.UserPatch) (*domain.User, error
 		}
 		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to get user: %v", err)
 	}
+
+	// we could check if the new information is the same as the old one
 
 	// compare passwords
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))

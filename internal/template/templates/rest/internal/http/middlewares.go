@@ -11,45 +11,42 @@ import (
 	"github.com/google/uuid"
 )
 
+// middlewares contains all the dependencies required by the middleware functions.
 type middlewares struct {
+	*baseHandler
 	validateToken func(string) (int, error)
 	logger        *slog.Logger
 }
 
-func NewMiddlewares(validateToken func(string) (int, error), logger *slog.Logger) *middlewares {
+// NewMiddlewares creates a new middlewares instance with the required dependencies.
+func NewMiddlewares(baseHandler *baseHandler, validateToken func(string) (int, error), logger *slog.Logger) *middlewares {
 	return &middlewares{
+		baseHandler:   baseHandler,
 		validateToken: validateToken,
 		logger:        logger,
 	}
 }
 
-// Custom type for context keys to prevent collisions
-type contextKey string
-
-const (
-	userIDKey    contextKey = "user_id"
-	requestIDKey contextKey = "request_id"
-)
-
-// NewAuthMiddleware creates a new authentication middleware.
-// It takes in the token validation function and returns a middleware function.
+// Auth returns a middleware that validates the JWT token in the Authorization header.
+// If the token is valid, it adds the user ID to the request context.
+// Handlers can retrieve the user ID using the getUserID method from the baseHandler.
 func (m *middlewares) Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			writeError(w, domain.Errorf(domain.UNAUTHORIZED_ERROR, "authorization header required"))
+			m.json.WriteError(w, r, domain.Errorf(domain.UNAUTHORIZED_ERROR, "authorization header required"))
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			writeError(w, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid authorization header format"))
+			m.json.WriteError(w, r, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid authorization header format"))
 			return
 		}
 
 		userID, err := m.validateToken(parts[1])
 		if err != nil {
-			writeError(w, err)
+			m.json.WriteError(w, r, err)
 			return
 		}
 
@@ -58,7 +55,7 @@ func (m *middlewares) Auth(next http.Handler) http.Handler {
 	})
 }
 
-// requestID middleware generates a unique request ID and adds it to the request context
+// RequestID middleware generates a unique request ID and adds it to the request context and response headers.
 func (m *middlewares) RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := uuid.New().String()
@@ -68,18 +65,20 @@ func (m *middlewares) RequestID(next http.Handler) http.Handler {
 	})
 }
 
+// responseWriter is a wrapper around http.ResponseWriter that captures the status code.
 type responseWriter struct {
 	http.ResponseWriter
 	status int
 }
 
+// WriteHeader overrides the WriteHeader method to capture the status code.
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// loggerMiddleware logs incoming HTTP requests and their duration.
-// It logs twice: when the request is received and when it is completed.
+// Logger logs incoming HTTP requests and their duration.
+// It logs at the start and end of a request.
 func (m *middlewares) Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -107,9 +106,9 @@ func (m *middlewares) Logger(next http.Handler) http.Handler {
 			"request_id", reqID,
 			"method", r.Method,
 			"path", r.URL.Path,
+			"user_agent", r.UserAgent(),
 			"status", wrapped.status,
 			"duration", time.Since(start).String(),
-			"user_agent", r.UserAgent(),
 		)
 	})
 }
@@ -120,10 +119,22 @@ func (m *middlewares) Recovery(next http.Handler) http.Handler {
 		defer func() {
 			err := recover()
 			if err != nil {
-				m.logger.Error("panic occurred", "error", err, "request_id", r.Context().Value(requestIDKey))
-				writeError(w, domain.Errorf(domain.INTERNAL_ERROR, "internal server error"))
+				m.json.WriteError(w, r, domain.Errorf(domain.INTERNAL_ERROR, "panic occurred: %v", err))
 			}
 		}()
 		next.ServeHTTP(w, r)
+	})
+}
+
+// NotFound sends a 404 response for unknown routes.
+func (m *middlewares) NotFound(w http.ResponseWriter, r *http.Request) {
+	m.json.WriteError(w, r, domain.Errorf(domain.NOTFOUND_ERROR, "resource not found"))
+}
+
+// MethodNotAllowed sends a 405 response for unknown methods.
+func (m *middlewares) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	m.json.WriteResponse(w, http.StatusMethodNotAllowed, response{
+		Status:  "error",
+		Message: "method not allowed",
 	})
 }

@@ -1,21 +1,22 @@
 package domain
 
 import (
-	"regexp"
 	"time"
+
+	"example.com/rest/internal/validator"
 )
 
 type User struct {
-	ID           int       `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	Version      int       `json:"-"`
+	ID           int       `json:"id" db:"id"`
+	Email        string    `json:"email" db:"email"`
+	PasswordHash string    `json:"-" db:"password_hash"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	Version      int       `json:"-" db:"version"`
 }
 
 type UserCredentials struct {
-	Email    string `json:"username"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -27,69 +28,38 @@ type UserPatch struct {
 
 // validation
 
-var (
-	RgxEmail = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-)
+func (u *UserCredentials) Validate() error {
+	v := validator.New()
 
-func isEmail(value string) bool {
-	if len(value) > 254 {
-		return false
-	}
+	v.NotBlank(u.Email, "email", "email is required")
+	v.Email(u.Email, "email", "email is not valid")
 
-	return RgxEmail.MatchString(value)
+	v.NotBlank(u.Password, "password", "password is required")
+	v.BetweenRunes(u.Password, 8, 50, "password", "password must be between 8 and 50 characters long")
+
+	return v.Valid()
 }
 
-func (u *UserCredentials) Validate() []string {
-	fields := []string{}
-
-	if u.Email == "" {
-		fields = append(fields, "email is required")
-	} else if !isEmail(u.Email) {
-		fields = append(fields, "invalid email")
-	}
-
-	if u.Password == "" {
-		fields = append(fields, "password is required")
-	} else if len(u.Password) < 8 || len(u.Password) > 50 {
-		fields = append(fields, "password must be between 8 and 50 characters")
-	}
-
-	if len(fields) == 0 {
-		return nil
-	}
-
-	return fields
-}
-
-func (u *UserPatch) Validate() []string {
-	fields := []string{}
+func (u *UserPatch) Validate() error {
+	v := validator.New()
 
 	if u.Email == nil && u.NewPassword == nil {
-		fields = append(fields, "no fields to patch")
-		return fields
+		v.Message("at least one field must be specified")
+		return v.Valid()
 	}
 
 	if u.Email != nil {
-		if !isEmail(*u.Email) {
-			fields = append(fields, "invalid email")
-		}
+		v.NotBlank(*u.Email, "email", "email is required")
+		v.Email(*u.Email, "email", "email is not valid")
 	}
 
 	if u.NewPassword != nil {
-		if len(*u.NewPassword) < 8 || len(*u.NewPassword) > 50 {
-			fields = append(fields, "new password must be between 8 and 50 characters")
-		}
+		v.NotBlank(*u.NewPassword, "new_password", "new password is required")
+		v.BetweenRunes(*u.NewPassword, 8, 50, "new_password", "new password must be between 8 and 50 characters long")
 	}
 
-	if u.Password == "" {
-		fields = append(fields, "password is required")
-	} else if len(u.Password) < 8 || len(u.Password) > 50 {
-		fields = append(fields, "password must be between 8 and 50 characters")
-	}
+	v.NotBlank(u.Password, "password", "password is required")
+	v.BetweenRunes(u.Password, 8, 50, "password", "password must be between 8 and 50 characters long")
 
-	if len(fields) == 0 {
-		return nil
-	}
-
-	return fields
+	return v.Valid()
 }

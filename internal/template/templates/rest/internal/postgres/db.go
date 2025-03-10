@@ -2,26 +2,26 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
+	"fmt"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
-func New(dsn string) (*sql.DB, error) {
+func New(url string) (*sqlx.DB, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sqlx.ConnectContext(ctx, "postgres", url)
 	if err != nil {
-		return nil, err
-	}
-	if err := db.PingContext(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(10)
 	db.SetConnMaxIdleTime(5 * time.Minute)
-	db.SetConnMaxLifetime(2 * time.Hour)
+	db.SetConnMaxLifetime(1 * time.Hour)
 
 	return db, nil
 }

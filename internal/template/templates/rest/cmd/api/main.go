@@ -11,9 +11,8 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
+	// Initialize logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	if err := run(logger); err != nil {
 		logger.Error("server failed", "error", err)
@@ -21,35 +20,31 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-
+	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	logger.Info("loaded configuration")
-
-	db, err := postgres.New(cfg.DB.GetDSN())
+	// Connect to database
+	db, err := postgres.New(cfg.DB.URL)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("connected to database")
-
+	// Initialize services
 	userService := postgres.NewUserService(db)
-	authService := jwt.NewAuthService(cfg.JWT.Secret, cfg.JWT.Duration, logger)
+	authService := jwt.NewAuthService(cfg.JWT.Secret, cfg.JWT.Duration)
 
-	logger.Info("initialized services")
+	// Initialize handlers and middlewares
+	baseHandler := http.NewBaseHandler(logger)
+	userHandler := http.NewUserHandler(baseHandler, userService, authService.GenerateToken)
+	middlewares := http.NewMiddlewares(baseHandler, authService.ValidateToken, logger)
 
-	userHandler := http.NewUserHandler(userService, authService.GenerateToken)
-	middlewares := http.NewMiddlewares(authService.ValidateToken, logger)
-
-	logger.Info("initialized handlers")
-
+	// Initialize router
 	router := http.NewRouter(userHandler, middlewares)
 
-	logger.Info("initialized routes")
-
-	server := http.New(cfg.Server.GetAddress(), router, logger)
+	// Start server
+	server := http.NewServer(cfg.Server.Addr(), router, logger)
 	return server.Start()
 }

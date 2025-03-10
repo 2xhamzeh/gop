@@ -1,40 +1,50 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 )
 
+// Code represents a domain error code.
+type ErrorCode string
+
 const (
-	CONFLICT_ERROR     = "conflict"
-	INTERNAL_ERROR     = "internal"
-	INVALID_ERROR      = "invalid"
-	NOTFOUND_ERROR     = "not_found"
-	UNAUTHORIZED_ERROR = "unauthorized"
+	CONFLICT_ERROR     = ErrorCode("conflict")
+	INTERNAL_ERROR     = ErrorCode("internal")
+	INVALID_ERROR      = ErrorCode("invalid")
+	NOTFOUND_ERROR     = ErrorCode("not_found")
+	UNAUTHORIZED_ERROR = ErrorCode("unauthorized")
+	FORBIDDEN_ERROR    = ErrorCode("forbidden")
 )
 
 type Error struct {
-	Code    string
+	Code    ErrorCode
 	Message string
-	Fields  []string
+	Fields  map[string][]string
 }
 
+// Error implements the error interface.
 func (e *Error) Error() string {
-	return fmt.Sprintf("code: %s, message: %s", e.Code, e.Message)
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
 }
 
-// Factory function for domain errors
-func Errorf(code, format string, args ...any) error {
+// Errorf creates a domain error.
+// It uses the fmt.Sprintf function to format the message.
+func Errorf(code ErrorCode, format string, args ...any) *Error {
 	return &Error{
 		Code:    code,
 		Message: fmt.Sprintf(format, args...),
 	}
 }
 
-// Factory function for domain errors with fields
-func ErrorfWithFields(code, format string, fields []string, args ...any) error {
-	return &Error{
-		Code:    code,
-		Message: fmt.Sprintf(format, args...),
-		Fields:  fields,
-	}
+// WithFields adds fields to the domain error.
+func (e *Error) WithFields(fields map[string][]string) *Error {
+	e.Fields = fields
+	return e
+}
+
+// Wrap uses errors.Join to combine the domain error with another error.
+// Should be called last.
+func (e *Error) Wrap(err error) error {
+	return errors.Join(e, err)
 }

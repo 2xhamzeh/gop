@@ -1,7 +1,6 @@
 package jwt
 
 import (
-	"log/slog"
 	"time"
 
 	"example.com/rest/internal/domain"
@@ -16,14 +15,12 @@ type claims struct {
 type authService struct {
 	secret   string
 	duration time.Duration
-	logger   *slog.Logger
 }
 
-func NewAuthService(secret string, duration time.Duration, logger *slog.Logger) *authService {
+func NewAuthService(secret string, duration time.Duration) *authService {
 	return &authService{
 		secret:   secret,
 		duration: duration,
-		logger:   logger,
 	}
 }
 
@@ -39,8 +36,7 @@ func (s *authService) GenerateToken(userID int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(s.secret))
 	if err != nil {
-		s.logger.Error("failed to generate token", "error", err, "userID", userID)
-		return "", domain.Errorf(domain.INTERNAL_ERROR, "failed to generate token")
+		return "", domain.Errorf(domain.INTERNAL_ERROR, "failed to generate token: %v", err)
 	}
 
 	return tokenString, nil

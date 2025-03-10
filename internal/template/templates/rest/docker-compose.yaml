@@ -1,21 +1,26 @@
+
+# This compose file creates 3 containers. The app, the migrations and the database.
+# The database runs first
+# then the migrations run over the database
+# finally the app runs when the migrations are successful
+# Modify to your needs
+
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${SERVER_PORT}:${SERVER_PORT}" # only expose port of the app, everything else within the docker network
+      - "${SERVER_PORT}:${SERVER_PORT}"  # Only expose port of the app, everything else within the Docker network
     environment:
-      - APP_ENV=${APP_ENV}
-      - DB_HOST=db # db is the name of the database container
-      - DB_PORT=5432 # default postgres port
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_SSLMODE=${DB_SSLMODE}
+      - PGHOST=${PGHOST}
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGDATABASE=${PGDATABASE}
+      - PGSSLMODE=${PGSSLMODE}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_DURATION=${JWT_DURATION}
-      - SERVER_HOST=0.0.0.0
+      - SERVER_HOST=${SERVER_HOST}
       - SERVER_PORT=${SERVER_PORT}
     depends_on:
       db:
@@ -26,15 +31,14 @@ services:
 
   db:
     image: postgres:16-alpine
-
     environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${PGUSER}
+      - POSTGRES_PASSWORD=${PGPASSWORD}
+      - POSTGRES_DB=${PGDATABASE}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER} -d ${PGDATABASE}"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -44,12 +48,11 @@ services:
       context: .
       dockerfile: Dockerfile.migrate
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_SSLMODE=${DB_SSLMODE}
+      - PGHOST=${PGHOST}
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGDATABASE=${PGDATABASE}
+      - PGSSLMODE=${PGSSLMODE}
     command: ["up"]
     depends_on:
       db:
