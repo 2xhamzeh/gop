@@ -4,7 +4,6 @@ This directory contains the migration tool for managing database schema changes.
 
 ## Prerequisites
 
-- Go 1.21 or later
 - PostgreSQL
 - `golang-migrate` CLI tool (for creating new migrations)
 
@@ -21,48 +20,52 @@ This will create two files:
 - `migrations/XXXXXX_name_of_your_migration.up.sql`
 - `migrations/XXXXXX_name_of_your_migration.down.sql`
 
-The `up.sql` file should contain the changes you want to make, and the `down.sql` file should contain the commands to reverse those changes.
+The `up.sql` file should contain the changes you want to make, and the `down.sql` file should contain the commands to reverse these changes.
 
 ## Running Migrations
 
+The `cmd/migrate/main.go` file is meant for running the database migrations when deploying the application (can be dockerized).
+It can be used in development. It can also be extended to support steps if needed. However using the migrate CLI during development might be better depending on your needs.
+
 All commands must be run from the project root directory.
 
-### Configuration
+### Using migrate CLI
 
-The migration tool uses the same configuration system as the main application. It will read from:
+```bash
+migrate -source file://migrations -database postgresql://user:password@host/db?sslmode=disable [command]
+```
 
-1. Environment variables
-2. `.env` file in the project root
-3. Default values
+### Using the go file
+
+#### Configuration
+
+The migration tool reads the configuration from the environmental variables.
+By default it reads the .env file if you have one, otherwise make sure to export the variables needed.
 
 Required environment variables:
 
 ```
-DB_HOST=localhost      # Database host
-DB_PORT=5432          # Database port
-DB_USER=your_user     # Database user
-DB_PASSWORD=your_pass # Database password
-DB_NAME=your_db       # Database name
-DB_SSLMODE=disable    # SSL mode
+PGHOST
+PGUSER
+PGPASSWORD
+PGDATABASE
+PGSSLMODE
 ```
 
-### Apply Migrations
+#### Apply Migrations
 
 ```bash
-# Using configuration from env vars or .env file
+# Using configuration from env variables
 go run cmd/migrate/main.go up
-
-# Or using custom database URL
-go run cmd/migrate/main.go -db-url="postgres://username:password@localhost:5432/dbname?sslmode=disable" up
 ```
 
-### Rollback Migrations
+#### Rollback Migrations
 
 ```bash
 go run cmd/migrate/main.go down
 ```
 
-### Check Migration Status
+#### Check Migration Status
 
 ```bash
 go run cmd/migrate/main.go version

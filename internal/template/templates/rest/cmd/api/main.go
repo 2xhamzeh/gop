@@ -8,6 +8,7 @@ import (
 	"example.com/rest/internal/http"
 	"example.com/rest/internal/jwt"
 	"example.com/rest/internal/postgres"
+	"example.com/rest/internal/services"
 )
 
 func main() {
@@ -32,8 +33,11 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	// Initialize repositories
+	userRepo := postgres.NewUserRepo(db)
+
 	// Initialize services
-	userService := postgres.NewUserService(db)
+	userService := services.NewUserService(userRepo)
 	authService := jwt.NewAuthService(cfg.JWT.Secret, cfg.JWT.Duration)
 
 	// Initialize handlers and middlewares

@@ -7,22 +7,22 @@ import (
 )
 
 type validator struct {
-	message string
-	errors  map[string][]string
+	errors map[string][]string
 }
 
 func New() *validator {
-	return &validator{errors: make(map[string][]string)}
+	return &validator{
+		errors: make(map[string][]string),
+	}
 }
 
-// Error is returned by e.Valid() if there are any errors.
 type Error struct {
 	Message string
 	Fields  map[string][]string
 }
 
-func (e *Error) Error() string {
-	return e.Message
+func (v *Error) Error() string {
+	return v.Message
 }
 
 // AddError adds an error message to the list of errors for a specific field.
@@ -30,21 +30,16 @@ func (v *validator) AddError(field, message string) {
 	v.errors[field] = append(v.errors[field], message)
 }
 
-// Message sets a custom error message for the error returned by e.Valid().
-// Only the last message set will be used.
-func (v *validator) Message(message string) {
-	v.message = message
-}
-
-// Validate returns the map of errors or nil if there are no errors.
-func (v *validator) Valid() error {
-	if len(v.errors) == 0 && v.message == "" {
+// Validate takes in an error message and return an error with the message and fields if there are any errors.
+func (v *validator) Validate(message string) error {
+	if len(v.errors) == 0 {
 		return nil
 	}
-	if v.message == "" {
-		v.message = "invalid input"
+
+	return &Error{
+		Message: message,
+		Fields:  v.errors,
 	}
-	return &Error{Message: v.message, Fields: v.errors}
 }
 
 // CheckField checks if a condition is met and adds an error message to the list of errors for a specific field if it's not.

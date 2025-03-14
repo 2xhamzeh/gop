@@ -4,54 +4,47 @@ import (
 	"net/http"
 
 	"example.com/rest/internal/domain"
+	"example.com/rest/internal/services"
 )
 
-type userService interface {
-	Create(req *domain.UserCredentials) (*domain.User, error)
-	Get(id int) (*domain.User, error)
-	Authenticate(req *domain.UserCredentials) (*domain.User, error)
-	Update(id int, req *domain.UserPatch) (*domain.User, error)
-	Delete(id int) error
-}
-
-type userHandler struct {
+type UserHandler struct {
 	*baseHandler
-	userService   userService
+	userService   *services.UserService
 	generateToken func(userID int) (string, error)
 }
 
-func NewUserHandler(baseHandler *baseHandler, userService userService, generateToken func(int) (string, error)) *userHandler {
-	return &userHandler{
+func NewUserHandler(baseHandler *baseHandler, userService *services.UserService, generateToken func(int) (string, error)) *UserHandler {
+	return &UserHandler{
 		baseHandler:   baseHandler,
 		userService:   userService,
 		generateToken: generateToken,
 	}
 }
 
-func (h *userHandler) register(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) register(w http.ResponseWriter, r *http.Request) {
 	var req domain.UserCredentials
 	if err := h.json.Read(r, &req); err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	user, err := h.userService.Create(&req)
+	user, err := h.userService.Create(r.Context(), &req)
 	if err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	h.json.Write(w, http.StatusCreated, user)
+	h.json.Write(w, http.StatusCreated, map[string]any{"user": user})
 }
 
-func (h *userHandler) login(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) login(w http.ResponseWriter, r *http.Request) {
 	var req domain.UserCredentials
 	if err := h.json.Read(r, &req); err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	user, err := h.userService.Authenticate(&req)
+	user, err := h.userService.Authenticate(r.Context(), &req)
 	if err != nil {
 		h.json.WriteError(w, r, err)
 		return
@@ -65,23 +58,23 @@ func (h *userHandler) login(w http.ResponseWriter, r *http.Request) {
 	h.json.Write(w, http.StatusOK, map[string]any{"token": token, "user": user})
 }
 
-func (h *userHandler) getUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) getUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.getUserID(r)
 	if err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	user, err := h.userService.Get(userID)
+	user, err := h.userService.GetByID(r.Context(), userID)
 	if err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	h.json.Write(w, http.StatusOK, user)
+	h.json.Write(w, http.StatusOK, map[string]any{"user": user})
 }
 
-func (h *userHandler) updateUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.getUserID(r)
 	if err != nil {
 		h.json.WriteError(w, r, err)
@@ -94,26 +87,26 @@ func (h *userHandler) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userService.Update(userID, &req)
+	user, err := h.userService.Update(r.Context(), userID, &req)
 	if err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	h.json.Write(w, http.StatusOK, user)
+	h.json.Write(w, http.StatusOK, map[string]any{"user": user})
 }
 
-func (h *userHandler) deleteUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserHandler) deleteUser(w http.ResponseWriter, r *http.Request) {
 	userID, err := h.getUserID(r)
 	if err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	if err := h.userService.Delete(userID); err != nil {
+	if err := h.userService.Delete(r.Context(), userID); err != nil {
 		h.json.WriteError(w, r, err)
 		return
 	}
 
-	h.json.Write(w, http.StatusNoContent, struct{}{})
+	h.json.Write(w, http.StatusNoContent, nil)
 }

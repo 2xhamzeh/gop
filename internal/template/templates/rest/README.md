@@ -1,8 +1,10 @@
-# Getting Started
+# Running the API
 
 ## Prerequisites
 
-- Docker and Docker Compose
+- Docker
+
+Note: Docker files are using go version 1.24.0, if your local go version is newer, you might run into issues, to fix them change the version used by the docker files or the version specified in your go.mod to 1.24.0
 
 ## Setup and Running
 
@@ -18,37 +20,34 @@ cp .env.example .env
 docker compose up -d
 ```
 
-3. Run database migrations:
+This command will:
 
-```bash
-docker compose --profile tools run --rm migrate up
-```
+- start a postgreSQL database container.
+- run a migration script in a separate container against the database.
+- run the API container and connect to the database.
 
-Your API will be available at `http://localhost:<SERVER_PORT>`
+Your API will be available at `http://localhost:<SERVER_PORT>`, 8080 is default in .env.example
 
 ## Environment Variables
 
-| Variable     | Purpose                 | Default     |
-| ------------ | ----------------------- | ----------- |
-| APP_ENV      | Application environment | development |
-| DB_USER      | Database username       | -           |
-| DB_PASSWORD  | Database password       | -           |
-| DB_NAME      | Database name           | -           |
-| DB_SSLMODE   | PostgreSQL SSL mode     | disable     |
-| JWT_SECRET   | JWT signing secret      | -           |
-| JWT_DURATION | JWT token duration      | 1h          |
-| SERVER_PORT  | API server port         | 8080        |
+| Variable     | Purpose                      |
+| ------------ | ---------------------------- |
+| PGHOST       | PostgreSQL Host              |
+| PGUSER       | PostgreSQL user              |
+| PGPASSWORD   | PostgreSQL password          |
+| PGDATABASE   | PostgreSQL name              |
+| PGSSLMODE    | PostgreSQL SSL mode          |
+| JWT_SECRET   | JWT signing secret           |
+| JWT_DURATION | JWT token duration           |
+| SERVER_HOST  | The host name of your server |
+| SERVER_PORT  | API server port              |
 
 ## Maintenance Commands
 
 ### Logs
 
 ```bash
-# All services
-docker compose logs -f
-
-# Single service
-docker compose logs -f [app|db]
+docker compose logs -f # -f will show logs in real time
 ```
 
 ### Service Management
@@ -65,13 +64,11 @@ docker compose build
 
 ```bash
 # Check database connectivity
-docker compose exec db pg_isready -U $DB_USER -d $DB_NAME
+docker compose exec db pg_isready
 
 # Reset database
-docker compose down
-docker volume rm ${PWD##*/}_postgres_data
-docker compose up -d
-docker compose --profile tools run --rm migrate up
+docker compose down -v
+docker compose up --build -d
 ```
 
 ## Troubleshooting

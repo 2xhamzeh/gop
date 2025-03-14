@@ -1,190 +1,98 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 
 	"example.com/rest/internal/domain"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
-	"golang.org/x/crypto/bcrypt"
 )
 
-type userService struct {
+type UserRepo struct {
 	db *sqlx.DB
 }
 
-func NewUserService(db *sqlx.DB) *userService {
-	return &userService{
-		db: db,
-	}
+func NewUserRepo(db *sqlx.DB) *UserRepo {
+	return &UserRepo{db: db}
 }
 
-// Create takes a UserCredentials and inserts a new user into the database.
-// It returns the created user or an error if the operation fails.
-func (s *userService) Create(req *domain.UserCredentials) (*domain.User, error) {
-	// validate input
-	err := req.Validate()
-	if err != nil {
-		return nil, err
-	}
-
-	// hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to hash password: %v", err)
-	}
-
-	// insert user
-	var user domain.User
-	err = s.db.QueryRow(`
-        INSERT INTO users (email, password_hash)
-        VALUES ($1, $2)
-        RETURNING id, email, created_at, updated_at`,
-		req.Email, string(hashedPassword),
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
-	if err != nil {
-		// Check for unique constraint violation: email already exists
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-			return nil, domain.Errorf(domain.CONFLICT_ERROR, "email already exists")
-		}
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to create user: %v", err)
-	}
-	return &user, nil
-}
-
-// Get takes a user ID and finds the user in the database.
-// It returns the user or an error if the operation fails.
-func (s *userService) Get(id int) (*domain.User, error) {
-	// find user
-	var user domain.User
-	err := s.db.QueryRow(`
-        SELECT id, email, created_at, updated_at
-        FROM users 
-        WHERE id = $1`,
-		id,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+// Insert takes an email and a password hash and inserts a new user into the database.
+// It returns the ID of the created user or an error if the operation fails.
+// If the user already exists, it returns an ErrConflict.
+func (r *UserRepo) Insert(ctx context.Context, email, passwordHash string) (int, error) {
+	var id int
+	err := r.db.QueryRowxContext(ctx, "INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id", email, passwordHash).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, domain.Errorf(domain.NOTFOUND_ERROR, "user not found")
+			return 0, ErrConflict
 		}
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to get user: %v", err)
+		return 0, err
 	}
-
-	return &user, nil
+	return id, nil
 }
 
-// Authenticate takes a UserCredentials and checks if the user exists and the password is correct.
+// GetByID takes a user ID and finds the user in the database.
 // It returns the user or an error if the operation fails.
-func (s *userService) Authenticate(req *domain.UserCredentials) (*domain.User, error) {
-	// validate input
-	err := req.Validate()
-	if err != nil {
-		return nil, err
-	}
-
-	// find user
+// If the user is not found, it returns an ErrNotFound.
+func (r *UserRepo) GetByID(ctx context.Context, id int) (*domain.User, error) {
 	var user domain.User
-	err = s.db.QueryRow(`
-        SELECT id, email, password_hash, created_at, updated_at
-        FROM users 
-        WHERE email = $1`,
-		req.Email,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
+	err := r.db.QueryRowxContext(ctx, "SELECT * FROM users WHERE id = $1", id).StructScan(&user)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid credentials")
+			return nil, ErrNotFound
 		}
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to authenticate user: %v", err)
+		return nil, err
 	}
-
-	// compare passwords
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
-	if err != nil {
-		return nil, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid credentials")
-	}
-
 	return &user, nil
 }
 
-// Update takes a user ID and a UserPatch and updates the user in the database.
+// GetByEmail takes an email and finds the user in the database.
+// It returns the user or an error if the operation fails.
+// If the user is not found, it returns an ErrNotFound.
+func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	err := r.db.QueryRowxContext(ctx, "SELECT * FROM users WHERE email = $1", email).StructScan(&user)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+// Update takes a user object and updates the user in the database overwriting the existing user.
 // It returns the updated user or an error if the operation fails.
-func (s *userService) Update(id int, req *domain.UserPatch) (*domain.User, error) {
-	// validate input
-	err := req.Validate()
+// If the user is not found (based on the user ID and version), it returns an ErrNotFound.
+func (r *UserRepo) Update(ctx context.Context, user *domain.User) (*domain.User, error) {
+	// update the user with the new user object
+	var updated domain.User
+	err := r.db.QueryRowxContext(ctx, "UPDATE users SET email = $1, password_hash = $2, updated_at = now(), version = version + 1 WHERE id = $3 AND version = $4 RETURNING *", user.Email, user.PasswordHash, user.ID, user.Version).StructScan(&updated)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
-
-	// get user
-	var user domain.User
-	err = s.db.QueryRow(`
-		SELECT email, password_hash, version
-		FROM users
-		WHERE id = $1`,
-		id,
-	).Scan(&user.Email, &user.PasswordHash, &user.Version)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, domain.Errorf(domain.NOTFOUND_ERROR, "user not found")
-		}
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to get user: %v", err)
-	}
-
-	// we could check if the new information is the same as the old one
-
-	// compare passwords
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
-	if err != nil {
-		return nil, domain.Errorf(domain.UNAUTHORIZED_ERROR, "invalid password")
-	}
-
-	// check which fields to update
-	if req.Email != nil {
-		user.Email = *req.Email
-	}
-
-	if req.NewPassword != nil {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.NewPassword), bcrypt.DefaultCost)
-		if err != nil {
-			return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to hash password: %v", err)
-		}
-		user.PasswordHash = string(hashedPassword)
-	}
-
-	// update user
-	// use version to insure no concurrent updates
-	err = s.db.QueryRow(`
-        UPDATE users
-        SET email = $1, password_hash = $2, updated_at = CURRENT_TIMESTAMP, version = version + 1
-        WHERE id = $3 AND version = $4
-        RETURNING id, email, created_at, updated_at`,
-		user.Email, user.PasswordHash, id, user.Version,
-	).Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, domain.Errorf(domain.CONFLICT_ERROR, "conflict updating user")
-		}
-		return nil, domain.Errorf(domain.INTERNAL_ERROR, "failed to update user: %v", err)
-	}
-
-	return &user, nil
+	return &updated, nil
 }
 
 // Delete takes a user ID and deletes the user from the database.
 // It returns an error if the operation fails.
-func (s *userService) Delete(id int) error {
-	result, err := s.db.Exec(`DELETE FROM users WHERE id = $1`, id)
+// If the user is not found, it returns an ErrNotFound.
+func (r *UserRepo) Delete(ctx context.Context, id int) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
 	if err != nil {
-		return domain.Errorf(domain.INTERNAL_ERROR, "error deleting user: %v", err)
+		return err
 	}
 
-	rows, err := result.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return domain.Errorf(domain.INTERNAL_ERROR, "error getting rows affected: %v", err)
+		return err
 	}
 
-	if rows == 0 {
-		return domain.Errorf(domain.NOTFOUND_ERROR, "user not found")
+	if rowsAffected == 0 {
+		return ErrNotFound
 	}
 
 	return nil

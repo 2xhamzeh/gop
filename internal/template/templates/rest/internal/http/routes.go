@@ -7,8 +7,8 @@ import (
 // NewRouter creates a new router, registers all routes and middlewares and returns the router.
 // It uses chi as the underlying router.
 func NewRouter(
-	userHandler *userHandler,
-	middlewares *middlewares,
+	userHandler *UserHandler,
+	middlewares *Middlewares,
 ) *chi.Mux {
 	r := chi.NewRouter()
 

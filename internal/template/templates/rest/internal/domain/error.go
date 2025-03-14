@@ -6,6 +6,7 @@ import (
 )
 
 // Code represents a domain error code.
+// Can be used as an error type.
 type ErrorCode string
 
 const (
@@ -37,14 +38,8 @@ func Errorf(code ErrorCode, format string, args ...any) *Error {
 	}
 }
 
-// WithFields adds fields to the domain error.
-func (e *Error) WithFields(fields map[string][]string) *Error {
-	e.Fields = fields
-	return e
-}
-
 // Wrap uses errors.Join to combine the domain error with another error.
-// Should be called last.
 func (e *Error) Wrap(err error) error {
 	return errors.Join(e, err)
 }
+

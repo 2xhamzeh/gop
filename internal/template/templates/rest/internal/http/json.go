@@ -18,7 +18,7 @@ type jsonHelper struct {
 // response is the JSON response format for the API.
 type response struct {
 	Status  string `json:"status"`            // "success" or "error"
-	Message string `json:"message,omitempty"` // error message
+	Message string `json:"message,omitempty"` //  message
 	Data    any    `json:"data,omitempty"`    // response data or error fields for invalid requests
 }
 
@@ -41,6 +41,7 @@ func (j *jsonHelper) Write(w http.ResponseWriter, statusCode int, data any) {
 		Status: "success",
 		Data:   data,
 	}
+
 	j.WriteResponse(w, statusCode, response)
 }
 
@@ -60,7 +61,6 @@ func (j *jsonHelper) WriteError(w http.ResponseWriter, r *http.Request, err erro
 		if code, ok := domainToHTTPErrors[domainError.Code]; ok {
 			statusCode = code
 			res.Message = domainError.Message
-			res.Data = domainError.Fields
 		}
 	} else if errors.As(err, &validationError) {
 		statusCode = http.StatusBadRequest

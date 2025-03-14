@@ -11,16 +11,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// middlewares contains all the dependencies required by the middleware functions.
-type middlewares struct {
+// Middlewares contains all the dependencies required by the middleware functions.
+type Middlewares struct {
 	*baseHandler
 	validateToken func(string) (int, error)
 	logger        *slog.Logger
 }
 
-// NewMiddlewares creates a new middlewares instance with the required dependencies.
-func NewMiddlewares(baseHandler *baseHandler, validateToken func(string) (int, error), logger *slog.Logger) *middlewares {
-	return &middlewares{
+// NewMiddlewares creates a new Middlewares instance with the required dependencies.
+func NewMiddlewares(baseHandler *baseHandler, validateToken func(string) (int, error), logger *slog.Logger) *Middlewares {
+	return &Middlewares{
 		baseHandler:   baseHandler,
 		validateToken: validateToken,
 		logger:        logger,
@@ -30,7 +30,7 @@ func NewMiddlewares(baseHandler *baseHandler, validateToken func(string) (int, e
 // Auth returns a middleware that validates the JWT token in the Authorization header.
 // If the token is valid, it adds the user ID to the request context.
 // Handlers can retrieve the user ID using the getUserID method from the baseHandler.
-func (m *middlewares) Auth(next http.Handler) http.Handler {
+func (m *Middlewares) Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -56,7 +56,7 @@ func (m *middlewares) Auth(next http.Handler) http.Handler {
 }
 
 // RequestID middleware generates a unique request ID and adds it to the request context and response headers.
-func (m *middlewares) RequestID(next http.Handler) http.Handler {
+func (m *Middlewares) RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := uuid.New().String()
 		w.Header().Set("X-Request-ID", requestID)
@@ -79,7 +79,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 // Logger logs incoming HTTP requests and their duration.
 // It logs at the start and end of a request.
-func (m *middlewares) Logger(next http.Handler) http.Handler {
+func (m *Middlewares) Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -114,7 +114,7 @@ func (m *middlewares) Logger(next http.Handler) http.Handler {
 }
 
 // recovery middleware recovers from panics and logs the error.
-func (m *middlewares) Recovery(next http.Handler) http.Handler {
+func (m *Middlewares) Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			err := recover()
@@ -127,12 +127,15 @@ func (m *middlewares) Recovery(next http.Handler) http.Handler {
 }
 
 // NotFound sends a 404 response for unknown routes.
-func (m *middlewares) NotFound(w http.ResponseWriter, r *http.Request) {
-	m.json.WriteError(w, r, domain.Errorf(domain.NOTFOUND_ERROR, "resource not found"))
+func (m *Middlewares) NotFound(w http.ResponseWriter, r *http.Request) {
+	m.json.WriteResponse(w, http.StatusNotFound, response{
+		Status:  "error",
+		Message: "not found",
+	})
 }
 
 // MethodNotAllowed sends a 405 response for unknown methods.
-func (m *middlewares) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
+func (m *Middlewares) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	m.json.WriteResponse(w, http.StatusMethodNotAllowed, response{
 		Status:  "error",
 		Message: "method not allowed",

@@ -37,15 +37,14 @@ func (u *UserCredentials) Validate() error {
 	v.NotBlank(u.Password, "password", "password is required")
 	v.BetweenRunes(u.Password, 8, 50, "password", "password must be between 8 and 50 characters long")
 
-	return v.Valid()
+	return v.Validate("invalid credentials")
 }
 
 func (u *UserPatch) Validate() error {
 	v := validator.New()
 
 	if u.Email == nil && u.NewPassword == nil {
-		v.Message("at least one field must be specified")
-		return v.Valid()
+		return Errorf(INVALID_ERROR, "at least one field must be specified")
 	}
 
 	if u.Email != nil {
@@ -61,5 +60,5 @@ func (u *UserPatch) Validate() error {
 	v.NotBlank(u.Password, "password", "password is required")
 	v.BetweenRunes(u.Password, 8, 50, "password", "password must be between 8 and 50 characters long")
 
-	return v.Valid()
+	return v.Validate("invalid input")
 }

@@ -18,6 +18,7 @@ func New(url string) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	// could be extracted to config
 	db.SetMaxOpenConns(20)
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxIdleTime(5 * time.Minute)
